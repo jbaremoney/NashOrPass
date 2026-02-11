@@ -4,3 +4,5 @@ gymnasium==1.2.3 ; python_version >= "3.11" and python_version < "3.13"
 numpy==2.4.2 ; python_version >= "3.11" and python_version < "3.13"
 pettingzoo==1.25.0 ; python_version >= "3.11" and python_version < "3.13"
 typing-extensions==4.15.0 ; python_version >= "3.11" and python_version < "3.13"
+pygame
+rlcard
