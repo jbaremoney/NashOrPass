@@ -30,3 +30,8 @@ class Game:
     def run_game(self, n_hands=None):
         if n_hands is None:
             while (self.players[0].bank > 0 and self.players[1].bank > 0):
+                self.play_hand()
+
+        else:
+            for i in range(n_hands):
+                self.play_hand()
