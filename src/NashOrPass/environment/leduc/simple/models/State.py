@@ -19,7 +19,9 @@ class State:
             if self.round_stage == 'postflop':
                 return ['check', 'bet']
             else:
-                return ['fold', 'call', 'raise']
+                return ['fold', 'utg_call', 'raise']
+        elif action_facing == 'utg_call':
+            return ['check', 'raise']
         elif action_facing == 'bet':  # CHANGE FROM 'open'
             return ['fold', 'call', 'raise']
         elif action_facing == 'raise':
@@ -28,3 +30,15 @@ class State:
             return ['fold', 'call']
 
         return []
+
+class MDPState(State):
+    def __init__(self, hero_card, villain_card, round_stage, flop_card, action_facing, position, bb_amnt, to_act, pot, checked_alr):
+        super(MDPState, self).__init__(hero_card, round_stage, flop_card, action_facing, position)
+        self.villain_card = villain_card
+        self.bb_amnt = bb_amnt
+        self.to_act = to_act
+        self.pot = pot
+        self.checked_alr = checked_alr
+    def to_tuple(self):
+        return (self.hero_card, self.villain_card, self.round_stage, self.flop_card,
+                self.action_facing, self.position, self.bb_amnt, self.to_act, self.pot, self.checked_alr)

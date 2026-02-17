@@ -1,30 +1,23 @@
 class SimplifiedLeducMDP:
     def __init__(self):
         self.action_facing_states = [
-            'opening',  # First to act or checked to
-            'facing_bet',  # Facing initial bet/open
-            'facing_raise',  # Facing a raise (can reraise)
-            'facing_reraise',  # Facing reraise (CAPPED - fold/call only)
+            # can't be facing check, open check treated as none
+            'none',  # First to act or checked to
+            'utg_call',  # Facing initial bet/open
+            'call',
+            'raise',  # Facing a raise (can reraise)
+            'reraise',  # Facing reraise (CAPPED - fold/call only)
         ]
+        self.gamma = 1 # finite hands, reward based on outcome of hand
 
-    def get_legal_actions(self, state):
-        """Return legal actions based on what you're facing"""
-        card, round_stage, flop, action_facing, position = state
 
-        if action_facing == 'opening':
-            # Can check or open bet
-            return ['check', 'bet']
+    def reward(self, state, start_bank=None, end_bank=None):
+        if state.end_hand:
+            return end_bank - start_bank
+        else:
+            return 0
 
-        elif action_facing == 'facing_bet':
-            # Facing initial bet - can fold, call, or raise it
-            return ['fold', 'call', 'raise']
+    def dist_next_states(self, state, pot):
+        # get the probability distribution over all possible next states
 
-        elif action_facing == 'facing_raise':
-            # Facing a raise - can fold, call, or reraise
-            return ['fold', 'call', 'reraise']
-
-        elif action_facing == 'facing_reraise':
-            # Facing reraise - CAPPED, can only fold or call
-            return ['fold', 'call']
-
-        return []
+        pass

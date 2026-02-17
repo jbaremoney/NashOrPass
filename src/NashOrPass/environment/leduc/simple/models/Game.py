@@ -18,7 +18,7 @@ class Game:
         deck = Deck()
         new_hand = Hand(self.bb_amnt, self.players, deck, self.btn, self.ante, self.rules)
 
-        out = new_hand.run()
+        out = new_hand.run(True)
 
         self.hands.append(new_hand)
 
@@ -34,4 +34,12 @@ class Game:
 
         else:
             for i in range(n_hands):
-                self.play_hand()
+                if (self.players[0].bank > 0 and self.players[1].bank > 0):
+                    self.play_hand()
+                    print(f"PLAYER 1 BANKROLL: {self.players[0].get_bank()}")
+                    print(f"PLAYER 2 BANKROLL: {self.players[1].get_bank()}")
+                    print("------------------------------------")
+                    print("------------------------------------")
+                    print("------------------------------------")
+                else:
+                    break

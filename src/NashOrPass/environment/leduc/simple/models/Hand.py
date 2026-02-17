@@ -1,4 +1,4 @@
-from NashOrPass.environment.leduc.simple.models.State import State
+from NashOrPass.environment.leduc.simple.models.State import State, MDPState
 from src.NashOrPass.environment.leduc.simple.models.Action import Action
 from src.NashOrPass.environment.leduc.simple.models.BettingRound import BettingRound
 from src.NashOrPass.environment.leduc.simple.models.Deck import Deck
@@ -22,6 +22,11 @@ class Hand:
         self.pot = 0
         self.dealt = False
 
+    def get_mdp_state(self, hero_idx=0):
+        return MDPState(self.hands[hero_idx], self.hands[1-hero_idx], self.round.stage,
+                        self.flop, self.round.actions[-1], 'btn' if hero_idx == self.btn else 'bb',
+                        self.bb_amnt, self.action_to, self.pot, 'check' in [a.type for a in self.round.actions])
+
     # randomly assign each player one card from 6 card deck
     def deal(self):
         # hands are index aligned, ie players[0]'s hand is in hands[0]
@@ -31,6 +36,7 @@ class Hand:
             print(f"bb card: {card1}")
             card2 = self.deck.deal()
             print(f"btn card: {card2}")
+            print("--------------")
             self.dealt = True
 
             # not button gets first card
@@ -86,7 +92,7 @@ class Hand:
         return State(hero_card=hero_card, round_stage=self.round.stage,
                      flop_card=flop_card, action_facing=action_facing,
                      position=hero_posn)
-    def run_betting_round(self):
+    def run_betting_round(self, loud=False):
         # TODO move this logic to BettingRound
         # pot and stack updates are iterative and upon action taken.
         # an open and a call always is of size 1
@@ -99,15 +105,24 @@ class Hand:
             self.round = BettingRound("postflop") # only two betting rounds
             self.action_to = 1-self.btn
         betting = True
+        if (self.players[0].get_bank() == 0 or self.players[1].get_bank() == 0):
+            betting = False
 
         while betting:
+
             to_act = self.players[self.action_to]
+
             hand_state = self.build_hand_state()
+            if loud:
+                print(f"TO ACT: {'btn' if to_act.id == self.btn else 'bb'}")
+                print(f"STATE FACING: {hand_state.to_tuple()}")
 
 
             # action will be dict
             # blocking?
             action = to_act.act(hand_state, self.bb_amnt)
+            if loud:
+                print(f"ACTION TAKEN: {action.type}")
 
             if action.type == "fold":
 
@@ -116,9 +131,9 @@ class Hand:
 
             elif action.type == "check":
                 self.round.actions.append(Action("check", self.action_to))
-
-                if (len(self.round.actions) >=1 and self.round.actions[-1].type == "check"):
-                    # checked to, ends betting round
+                # this won't break preflop since actions[-2] won't be check
+                if (len(self.round.actions) >=2 and self.round.actions[-2].type == "check"):
+                    # check back, end  betting round
                     betting = False
 
                 else:
@@ -129,6 +144,14 @@ class Hand:
                 self.round.actions.append(Action("bet", self.action_to, total_amount=1 * self.bb_amnt))
 
                 self.pot += 1*self.bb_amnt
+                # move action
+                self.action_to = 1 if self.action_to == 0 else 0
+
+            elif action.type == "utg_call":
+                # special case of call, preflop utg call gives bb option
+                self.round.actions.append(Action("call", self.action_to, total_amount=1 * self.bb_amnt))
+
+                self.pot += 1 * self.bb_amnt
                 # move action
                 self.action_to = 1 if self.action_to == 0 else 0
 
@@ -146,6 +169,9 @@ class Hand:
                 # move action
                 self.action_to = 1 if self.action_to == 0 else 0
 
+            if (self.players[0].get_bank() == 0 or self.players[1].get_bank() == 0 ):
+                betting = False
+
         self.rounds.append(self.round)
 
     def post_antes(self):
@@ -160,7 +186,7 @@ class Hand:
         self.players[1-self.btn].post_bb(self.bb_amnt)
         self.pot += self.bb_amnt
 
-    def run(self):
+    def run(self, loud=False):
         # assign each player a card
         self.post_antes() # adds to pot
         self.post_bb() # adds to pot
@@ -168,7 +194,7 @@ class Hand:
         self.deal()
 
         # run betting round
-        self.run_betting_round()
+        self.run_betting_round(loud)
 
         # check if last action was a fold, ends hand
         if self.rounds[-1].actions[-1].type == "fold":
@@ -184,7 +210,9 @@ class Hand:
 
             self.deal()
 
-            self.run_betting_round()
+            print(f"POSTFLOP DEALT")
+
+            self.run_betting_round(loud)
 
             if self.rounds[-1].actions[-1].type != "fold":
                 # showdown
