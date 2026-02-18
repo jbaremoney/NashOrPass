@@ -34,6 +34,7 @@ class State:
 class MDPState(State):
     def __init__(self, hero_card, villain_card, round_stage, flop_card, action_facing, position, bb_amnt, to_act, pot, checked_alr):
         super(MDPState, self).__init__(hero_card, round_stage, flop_card, action_facing, position)
+        self.action_facing = action_facing.type if hasattr(action_facing, "type") else action_facing
         self.villain_card = villain_card
         self.bb_amnt = bb_amnt
         self.to_act = to_act

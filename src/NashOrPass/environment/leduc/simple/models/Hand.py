@@ -1,4 +1,4 @@
-from NashOrPass.environment.leduc.simple.models.State import State, MDPState
+from src.NashOrPass.environment.leduc.simple.models.State import State, MDPState
 from src.NashOrPass.environment.leduc.simple.models.Action import Action
 from src.NashOrPass.environment.leduc.simple.models.BettingRound import BettingRound
 from src.NashOrPass.environment.leduc.simple.models.Deck import Deck
