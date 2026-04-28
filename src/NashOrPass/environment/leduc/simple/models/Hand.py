@@ -131,10 +131,12 @@ class Hand:
 
             elif action.type == "check":
                 self.round.actions.append(Action("check", self.action_to))
-                # this won't break preflop since actions[-2] won't be check
-                if (len(self.round.actions) >=2 and self.round.actions[-2].type == "check"):
+                # either checked to postflop, or preflop option check
+                if ((len(self.round.actions) >=2 and self.round.actions[-2].type == "check") or self.round.stage == "preflop"):
                     # check back, end  betting round
                     betting = False
+
+                #
 
                 else:
                     # opening check, move to next player
@@ -149,7 +151,7 @@ class Hand:
 
             elif action.type == "utg_call":
                 # special case of call, preflop utg call gives bb option
-                self.round.actions.append(Action("call", self.action_to, total_amount=1 * self.bb_amnt))
+                self.round.actions.append(Action("utg_call", self.action_to, total_amount=1 * self.bb_amnt))
 
                 self.pot += 1 * self.bb_amnt
                 # move action

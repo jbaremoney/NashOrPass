@@ -21,7 +21,7 @@ class Player:
     def act(self, state: State, bb_amnt):
         """Choose action from legal actions"""
         actions = state.get_legal_actions()
-        choice = self.policy.apply(actions)  # Returns a string like "fold", "check"
+        choice = self.policy.apply(actions, state)  # Returns a string like "fold", "check"
 
         if choice == "fold":
             return Action("fold", self.id)
@@ -33,6 +33,9 @@ class Player:
         elif choice == "call":
             self.update_bank(1*bb_amnt, plus=False)
             return Action("call", self.id, amount_raised=0, total_amount=1*bb_amnt)
+        elif choice == "utg_call":
+            self.update_bank(1 * bb_amnt, plus=False)
+            return Action("utg_call", self.id, amount_raised=0, total_amount=1 * bb_amnt)
         elif choice == "raise":
             self.update_bank(2*bb_amnt, plus=False)
             return Action("raise", self.id, amount_raised=1*bb_amnt, total_amount=2*bb_amnt)

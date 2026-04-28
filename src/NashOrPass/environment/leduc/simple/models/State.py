@@ -1,15 +1,22 @@
 class State:
-    def __init__(self, hero_card, round_stage, flop_card, action_facing, position):
+    def __init__(self, hero_card, round_stage, flop_card, action_facing, position, folded_player=None):
         self.hero_card = hero_card  # 'J', 'Q', or 'K'
         self.round_stage = round_stage  # 'preflop' or 'postflop'
         self.flop_card = flop_card  # 'J', 'Q', 'K', or None
         self.action_facing = action_facing  # 'opening', 'facing_bet', 'facing_raise'
-        self.position = position  # 'btn' or 'bb'
+        self.hero_position = position  # 'btn' or 'bb'
+        self.folded_player = folded_player
 
     def to_tuple(self):
         """Convert to hashable tuple for use as dict key"""
         return (self.hero_card, self.round_stage, self.flop_card,
-                self.action_facing, self.position)
+                self.action_facing, self.hero_position, self.folded_player)
+
+    def __hash__(self):
+        return hash(self.to_tuple())
+
+    def __eq__(self, other):
+        return isinstance(other, MDPState) and self.to_tuple() == other.to_tuple()
 
     def get_legal_actions(self):
         """Return legal actions based on what you're facing"""
@@ -42,4 +49,4 @@ class MDPState(State):
         self.checked_alr = checked_alr
     def to_tuple(self):
         return (self.hero_card, self.villain_card, self.round_stage, self.flop_card,
-                self.action_facing, self.position, self.bb_amnt, self.to_act, self.pot, self.checked_alr)
+                self.action_facing, self.hero_position, self.bb_amnt, self.to_act, self.pot, self.checked_alr)

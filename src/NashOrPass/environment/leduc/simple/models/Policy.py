@@ -12,13 +12,18 @@ class Policy:
         dist: {"action": prob, ...} probs sum to 1 (or close)
         returns one sampled action string
         """
+        print(f"_weighted_choice called with dist {dist}")
+        print(f"dist type: {type(dist)}")
+
         r = random.random()
         cum = 0.0
         for a, p in dist.items():
             cum += p
             if r <= cum:
+                print(f"SAMPLED ACTION: {a}")
                 return a
         # fallback for float error
+
         return list(dist.keys())[-1]
 
     def _bucket_postflop(self, state: State):
@@ -38,13 +43,18 @@ class Policy:
         return "LOW"
 
     """DIST FUNCTION OVER OPPONENT ACTIONS"""
-    def dummy_dist(self, leg_actions, state: State):
+
+    def dummy_dist(self, leg_actions, state: State) -> dict:
         if self.type == "random":
-            pass
+            # Return uniform distribution over legal actions
+            n = len(leg_actions)
+            return {a: 1.0 / n for a in leg_actions}
+
         elif self.type == "standard":
-            # safety: if no state, default random
+            # safety: if no state, default uniform random
             if state is None:
-                return random.sample(leg_actions, 1)[0]
+                n = len(leg_actions)
+                return {a: 1.0 / n for a in leg_actions}
 
             # convenience
             card = state.hero_card[0] if state.hero_card else None
@@ -65,9 +75,11 @@ class Policy:
                 # renormalize (in case something got filtered)
                 s = sum(dist.values())
                 if s == 0:
-                    return random.sample(leg_actions, 1)[0]
+                    # Return uniform distribution as fallback
+                    n = len(leg_actions)
+                    return {a: 1.0 / n for a in leg_actions}
                 dist = {a: p / s for a, p in dist.items()}
-                return self._weighted_choice(dist)
+                return dist
 
             # ----- POSTFLOP first action (facing 'none') -----
             # postflop + facing 'none' => ['check','bet']
@@ -85,9 +97,10 @@ class Policy:
                 dist = {a: p for a, p in dist.items() if a in leg_actions}
                 s = sum(dist.values())
                 if s == 0:
-                    return random.sample(leg_actions, 1)[0]
+                    n = len(leg_actions)
+                    return {a: 1.0 / n for a in leg_actions}
                 dist = {a: p / s for a, p in dist.items()}
-                return self._weighted_choice(dist)
+                return dist
 
             # ----- FACING A BET -----
             if facing == "bet" or facing == "utg_call":
@@ -104,9 +117,54 @@ class Policy:
                 dist = {a: p for a, p in dist.items() if a in leg_actions}
                 s = sum(dist.values())
                 if s == 0:
-                    return random.sample(leg_actions, 1)[0]
+                    n = len(leg_actions)
+                    return {a: 1.0 / n for a in leg_actions}
                 dist = {a: p / s for a, p in dist.items()}
-                return self._weighted_choice(dist)
+                return dist
+
+            # ----- FACING A RAISE -----
+            if facing == "raise":
+                b = self._bucket_postflop(state)
+                if b == "PAIR":
+                    dist = {"fold": 0.00, "call": 0.30, "reraise": 0.70}
+                elif b == "HIGH":
+                    dist = {"fold": 0.10, "call": 0.75, "reraise": 0.15}
+                elif b == "MID":
+                    dist = {"fold": 0.30, "call": 0.65, "reraise": 0.05}
+                else:
+                    dist = {"fold": 0.60, "call": 0.40, "reraise": 0.00}
+
+                dist = {a: p for a, p in dist.items() if a in leg_actions}
+                s = sum(dist.values())
+                if s == 0:
+                    n = len(leg_actions)
+                    return {a: 1.0 / n for a in leg_actions}
+                dist = {a: p / s for a, p in dist.items()}
+                return dist
+
+            # ----- FACING A RERAISE -----
+            if facing == "reraise":
+                b = self._bucket_postflop(state)
+                if b == "PAIR":
+                    dist = {"fold": 0.00, "call": 1.00}
+                elif b == "HIGH":
+                    dist = {"fold": 0.25, "call": 0.75}
+                elif b == "MID":
+                    dist = {"fold": 0.55, "call": 0.45}
+                else:
+                    dist = {"fold": 0.80, "call": 0.20}
+
+                dist = {a: p for a, p in dist.items() if a in leg_actions}
+                s = sum(dist.values())
+                if s == 0:
+                    n = len(leg_actions)
+                    return {a: 1.0 / n for a in leg_actions}
+                dist = {a: p / s for a, p in dist.items()}
+                return dist
+
+            # Fallback if none of the conditions matched
+            n = len(leg_actions)
+            return {a: 1.0 / n for a in leg_actions}
 
             # ----- FACING A RAISE -----
             if facing == "raise":
@@ -125,7 +183,7 @@ class Policy:
                 if s == 0:
                     return random.sample(leg_actions, 1)[0]
                 dist = {a: p / s for a, p in dist.items()}
-                return self._weighted_choice(dist)
+                return dist
 
             # ----- FACING A RERAISE -----
             if facing == "reraise":
@@ -144,24 +202,26 @@ class Policy:
                 if s == 0:
                     return random.sample(leg_actions, 1)[0]
                 dist = {a: p / s for a, p in dist.items()}
-                return self._weighted_choice(dist)
+                return dist
 
-    def apply(self, leg_actions, state: State = None):
+    def apply(self, legal_actions, state: State = None):
+        print(f"APPLYING POLICY to legal actions: {legal_actions}")
+
         if self.type == "random":
-            return random.sample(leg_actions, 1)[0]
+            return random.sample(legal_actions, 1)[0]
 
         elif self.type == "standard":
             # safety: if no state, default random
             if state is None:
                 raise ValueError("State is None passed to villain policy")
 
-            dist = self.dummy_dist(leg_actions, state)
+            dist = self.dummy_dist(legal_actions, state)
             return self._weighted_choice(dist)
 
 
         elif self.type == "strict_value":
             # placeholder: could be deterministic thresholds (e.g., always raise with K, etc.)
-            return random.sample(leg_actions, 1)[0]
+            return random.sample(legal_actions, 1)[0]
 
         # default
-        return random.sample(leg_actions, 1)[0]
+        return random.sample(legal_actions, 1)[0]
