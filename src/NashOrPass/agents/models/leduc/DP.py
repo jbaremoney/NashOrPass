@@ -142,7 +142,7 @@ if __name__ == "__main__":
             print("Villain policy: uniform over legal actions")
             print("Outcomes after villain's first action:")
 
-            outs = LeducSimpleMDP.env_transition_dist(root, villain_policy="uniform")
+            outs = LeducSimpleMDP.env_transition_dist(root, villain_policy="standard")
 
             total_prob = 0.0
 

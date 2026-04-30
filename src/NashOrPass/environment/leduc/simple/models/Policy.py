@@ -42,167 +42,160 @@ class Policy:
             return "MID"
         return "LOW"
 
-    """DIST FUNCTION OVER OPPONENT ACTIONS"""
-
     def dummy_dist(self, leg_actions, state: State) -> dict:
-        if self.type == "random":
-            # Return uniform distribution over legal actions
+        """
+        Return a probability distribution over legal actions.
+
+        Output format:
+            {"action_name": probability, ...}
+
+        This is for DP, so it returns probabilities, not a sampled action.
+        """
+
+        def uniform():
             n = len(leg_actions)
+            if n == 0:
+                return {}
             return {a: 1.0 / n for a in leg_actions}
 
-        elif self.type == "standard":
-            # safety: if no state, default uniform random
-            if state is None:
-                n = len(leg_actions)
-                return {a: 1.0 / n for a in leg_actions}
+        def normalize(dist):
+            # keep only legal actions
+            dist = {a: p for a, p in dist.items() if a in leg_actions}
 
-            # convenience
-            card = state.hero_card[0] if state.hero_card else None
-            facing = state.action_facing
-            stage = state.round_stage
+            total = sum(dist.values())
+            if total <= 0:
+                return uniform()
 
-            # actor opening preflop
-            if stage == "preflop" and facing == "none":
+            return {a: p / total for a, p in dist.items()}
+
+        if self.type == "random" or state is None:
+            return uniform()
+
+        if self.type != "standard":
+            raise ValueError(f"Policy type {self.type} not implemented for dummy_dist")
+
+        card = state.hero_card[0] if state.hero_card else None
+        facing = state.action_facing
+        stage = state.round_stage
+
+        # --------------------------------------------------
+        # PREFLOP OPENING: fold / utg_call / raise
+        # --------------------------------------------------
+        if stage == "preflop" and facing == "none":
+            if card == "K":
+                return normalize({"fold": 0.00, "utg_call": 0.45, "raise": 0.55})
+            elif card == "Q":
+                return normalize({"fold": 0.05, "utg_call": 0.75, "raise": 0.20})
+            else:  # J
+                return normalize({"fold": 0.15, "utg_call": 0.75, "raise": 0.10})
+
+        # --------------------------------------------------
+        # PREFLOP FACING UTG_CALL: check / raise
+        # --------------------------------------------------
+        if stage == "preflop" and facing == "utg_call":
+            if card == "K":
+                return normalize({"check": 0.35, "raise": 0.65})
+            elif card == "Q":
+                return normalize({"check": 0.75, "raise": 0.25})
+            else:  # J
+                return normalize({"check": 0.90, "raise": 0.10})
+
+        # --------------------------------------------------
+        # POSTFLOP OPENING: check / bet
+        # --------------------------------------------------
+        if stage == "postflop" and facing == "none":
+            b = self._bucket_postflop(state)
+
+            if b == "PAIR":
+                return normalize({"check": 0.10, "bet": 0.90})
+            elif b == "HIGH":
+                return normalize({"check": 0.40, "bet": 0.60})
+            elif b == "MID":
+                return normalize({"check": 0.65, "bet": 0.35})
+            else:  # LOW
+                return normalize({"check": 0.80, "bet": 0.20})
+
+        # --------------------------------------------------
+        # POSTFLOP AFTER CHECK: check / bet
+        # --------------------------------------------------
+        if stage == "postflop" and facing == "check":
+            b = self._bucket_postflop(state)
+
+            if b == "PAIR":
+                return normalize({"check": 0.20, "bet": 0.80})
+            elif b == "HIGH":
+                return normalize({"check": 0.45, "bet": 0.55})
+            elif b == "MID":
+                return normalize({"check": 0.70, "bet": 0.30})
+            else:  # LOW
+                return normalize({"check": 0.85, "bet": 0.15})
+
+        # --------------------------------------------------
+        # FACING BET: fold / call / raise
+        # --------------------------------------------------
+        if facing == "bet":
+            b = self._bucket_postflop(state)
+
+            if b == "PAIR":
+                return normalize({"fold": 0.00, "call": 0.35, "raise": 0.65})
+            elif b == "HIGH":
+                return normalize({"fold": 0.05, "call": 0.70, "raise": 0.25})
+            elif b == "MID":
+                return normalize({"fold": 0.20, "call": 0.70, "raise": 0.10})
+            else:
+                return normalize({"fold": 0.45, "call": 0.50, "raise": 0.05})
+
+        # --------------------------------------------------
+        # FACING RAISE: fold / call / reraise
+        # Works preflop and postflop.
+        # --------------------------------------------------
+        if facing == "raise":
+            # Preflop: use card strength only
+            if stage == "preflop":
                 if card == "K":
-                    dist = {"fold": 0.00, "utg_call": 0.45, "raise": 0.55}
+                    return normalize({"fold": 0.00, "call": 0.35, "reraise": 0.65})
                 elif card == "Q":
-                    dist = {"fold": 0.05, "utg_call": 0.75, "raise": 0.20}
+                    return normalize({"fold": 0.15, "call": 0.75, "reraise": 0.10})
                 else:  # J
-                    dist = {"fold": 0.15, "utg_call": 0.75, "raise": 0.10}
+                    return normalize({"fold": 0.45, "call": 0.55, "reraise": 0.00})
 
-                # only keep actions that are actually legal in this spot
-                dist = {a: p for a, p in dist.items() if a in leg_actions}
-                # renormalize (in case something got filtered)
-                s = sum(dist.values())
-                if s == 0:
-                    # Return uniform distribution as fallback
-                    n = len(leg_actions)
-                    return {a: 1.0 / n for a in leg_actions}
-                dist = {a: p / s for a, p in dist.items()}
-                return dist
+            # Postflop: use bucket
+            b = self._bucket_postflop(state)
 
-            # ----- POSTFLOP first action (facing 'none') -----
-            # postflop + facing 'none' => ['check','bet']
-            if stage == "postflop" and facing == "none":
-                b = self._bucket_postflop(state)
-                if b == "PAIR":
-                    dist = {"check": 0.10, "bet": 0.90}
-                elif b == "HIGH":
-                    dist = {"check": 0.40, "bet": 0.60}
-                elif b == "MID":
-                    dist = {"check": 0.65, "bet": 0.35}
-                else:  # LOW
-                    dist = {"check": 0.80, "bet": 0.20}
+            if b == "PAIR":
+                return normalize({"fold": 0.00, "call": 0.30, "reraise": 0.70})
+            elif b == "HIGH":
+                return normalize({"fold": 0.10, "call": 0.75, "reraise": 0.15})
+            elif b == "MID":
+                return normalize({"fold": 0.30, "call": 0.65, "reraise": 0.05})
+            else:
+                return normalize({"fold": 0.60, "call": 0.40, "reraise": 0.00})
 
-                dist = {a: p for a, p in dist.items() if a in leg_actions}
-                s = sum(dist.values())
-                if s == 0:
-                    n = len(leg_actions)
-                    return {a: 1.0 / n for a in leg_actions}
-                dist = {a: p / s for a, p in dist.items()}
-                return dist
+        # --------------------------------------------------
+        # FACING RERAISE: fold / call
+        # Works preflop and postflop.
+        # --------------------------------------------------
+        if facing == "reraise":
+            if stage == "preflop":
+                if card == "K":
+                    return normalize({"fold": 0.05, "call": 0.95})
+                elif card == "Q":
+                    return normalize({"fold": 0.35, "call": 0.65})
+                else:  # J
+                    return normalize({"fold": 0.75, "call": 0.25})
 
-            # ----- FACING A BET -----
-            if facing == "bet" or facing == "utg_call":
-                b = self._bucket_postflop(state)
-                if b == "PAIR":
-                    dist = {"fold": 0.00, "call": 0.35, "raise": 0.65}
-                elif b == "HIGH":
-                    dist = {"fold": 0.05, "call": 0.70, "raise": 0.25}
-                elif b == "MID":
-                    dist = {"fold": 0.20, "call": 0.70, "raise": 0.10}
-                else:
-                    dist = {"fold": 0.45, "call": 0.50, "raise": 0.05}
+            b = self._bucket_postflop(state)
 
-                dist = {a: p for a, p in dist.items() if a in leg_actions}
-                s = sum(dist.values())
-                if s == 0:
-                    n = len(leg_actions)
-                    return {a: 1.0 / n for a in leg_actions}
-                dist = {a: p / s for a, p in dist.items()}
-                return dist
+            if b == "PAIR":
+                return normalize({"fold": 0.00, "call": 1.00})
+            elif b == "HIGH":
+                return normalize({"fold": 0.25, "call": 0.75})
+            elif b == "MID":
+                return normalize({"fold": 0.55, "call": 0.45})
+            else:
+                return normalize({"fold": 0.80, "call": 0.20})
 
-            # ----- FACING A RAISE -----
-            if facing == "raise":
-                b = self._bucket_postflop(state)
-                if b == "PAIR":
-                    dist = {"fold": 0.00, "call": 0.30, "reraise": 0.70}
-                elif b == "HIGH":
-                    dist = {"fold": 0.10, "call": 0.75, "reraise": 0.15}
-                elif b == "MID":
-                    dist = {"fold": 0.30, "call": 0.65, "reraise": 0.05}
-                else:
-                    dist = {"fold": 0.60, "call": 0.40, "reraise": 0.00}
-
-                dist = {a: p for a, p in dist.items() if a in leg_actions}
-                s = sum(dist.values())
-                if s == 0:
-                    n = len(leg_actions)
-                    return {a: 1.0 / n for a in leg_actions}
-                dist = {a: p / s for a, p in dist.items()}
-                return dist
-
-            # ----- FACING A RERAISE -----
-            if facing == "reraise":
-                b = self._bucket_postflop(state)
-                if b == "PAIR":
-                    dist = {"fold": 0.00, "call": 1.00}
-                elif b == "HIGH":
-                    dist = {"fold": 0.25, "call": 0.75}
-                elif b == "MID":
-                    dist = {"fold": 0.55, "call": 0.45}
-                else:
-                    dist = {"fold": 0.80, "call": 0.20}
-
-                dist = {a: p for a, p in dist.items() if a in leg_actions}
-                s = sum(dist.values())
-                if s == 0:
-                    n = len(leg_actions)
-                    return {a: 1.0 / n for a in leg_actions}
-                dist = {a: p / s for a, p in dist.items()}
-                return dist
-
-            # Fallback if none of the conditions matched
-            n = len(leg_actions)
-            return {a: 1.0 / n for a in leg_actions}
-
-            # ----- FACING A RAISE -----
-            if facing == "raise":
-                b = self._bucket_postflop(state)
-                if b == "PAIR":
-                    dist = {"fold": 0.00, "call": 0.30, "reraise": 0.70}
-                elif b == "HIGH":
-                    dist = {"fold": 0.10, "call": 0.75, "reraise": 0.15}
-                elif b == "MID":
-                    dist = {"fold": 0.30, "call": 0.65, "reraise": 0.05}
-                else:
-                    dist = {"fold": 0.60, "call": 0.40, "reraise": 0.00}
-
-                dist = {a: p for a, p in dist.items() if a in leg_actions}
-                s = sum(dist.values())
-                if s == 0:
-                    return random.sample(leg_actions, 1)[0]
-                dist = {a: p / s for a, p in dist.items()}
-                return dist
-
-            # ----- FACING A RERAISE -----
-            if facing == "reraise":
-                b = self._bucket_postflop(state)
-                if b == "PAIR":
-                    dist = {"fold": 0.00, "call": 1.00}
-                elif b == "HIGH":
-                    dist = {"fold": 0.25, "call": 0.75}
-                elif b == "MID":
-                    dist = {"fold": 0.55, "call": 0.45}
-                else:
-                    dist = {"fold": 0.80, "call": 0.20}
-
-                dist = {a: p for a, p in dist.items() if a in leg_actions}
-                s = sum(dist.values())
-                if s == 0:
-                    return random.sample(leg_actions, 1)[0]
-                dist = {a: p / s for a, p in dist.items()}
-                return dist
+        return uniform()
 
     def apply(self, legal_actions, state: State = None):
         print(f"APPLYING POLICY to legal actions: {legal_actions}")

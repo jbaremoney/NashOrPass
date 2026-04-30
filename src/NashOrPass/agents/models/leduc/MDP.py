@@ -1,9 +1,5 @@
-import copy
-import random
-
 from src.NashOrPass.environment.leduc.simple.models.Policy import Policy
 from src.NashOrPass.environment.leduc.simple.models.State import MDPState
-from src.NashOrPass.environment.leduc.simple.models.Deck import Deck
 from copy import deepcopy
 from src.NashOrPass.environment.leduc.simple.utils.showdown import showdown
 
@@ -268,11 +264,12 @@ class LeducSimpleMDP:
             return prob_tab
 
         def villain_action_dist(state):
+            actions = LeducSimpleMDP.legal_actions_from_mdp(state)
             if villain_policy == 'uniform':
-                actions = LeducSimpleMDP.legal_actions_from_mdp(state)
                 return {action: 1.0 / len(actions) for action in actions}
+            else:
+                return Policy(villain_policy).dummy_dist(actions, state)
 
-            raise ValueError(f"Villain policy: {villain_policy} not implemented")
 
         def fold_reward(state):
             if state.folded_player == 0:
