@@ -1,6 +1,27 @@
 from NashOrPass.agents.models.leduc.MDP import LeducSimpleMDP
 from NashOrPass.environment.leduc.simple.models.State import MDPState
+import os
+import pickle
 
+def save_policy(policy, filename="dp_policy.pkl"):
+    save_dir = os.path.join(
+        os.path.dirname(__file__),
+        "saved_policies"
+    )
+    os.makedirs(save_dir, exist_ok=True)
+
+    path = os.path.join(save_dir, filename)
+
+    # Safer: save tuple keys instead of raw MDPState objects
+    serializable_policy = {
+        state.to_tuple(): action
+        for state, action in policy.items()
+    }
+
+    with open(path, "wb") as f:
+        pickle.dump(serializable_policy, f)
+
+    print(f"Saved policy to {path}")
 
 def initial_states():
     cards = ["Jh", "Jd", "Qh", "Qd", "Kh", "Kd"]
@@ -121,6 +142,8 @@ def q_values_for_state(s, V, villain_policy="uniform", gamma=1.0):
 
 if __name__ == "__main__":
     V, policy = value_iteration()
+
+    save_policy(policy, filename=f"dp_policy_vs_standard.pkl")
 
     roots = initial_states()
 
