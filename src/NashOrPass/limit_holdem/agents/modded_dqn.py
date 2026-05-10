@@ -1,3 +1,7 @@
+"""
+change policy from eps-greedy to making prob of action propotional to Q val of it
+"""
+
 import random
 import torch
 import torch.nn.functional as F
@@ -5,8 +9,11 @@ import torch.nn.functional as F
 from NashOrPass.limit_holdem.networks.mlp_qnet import MLPQNetwork
 from NashOrPass.limit_holdem.buffers.replay_buffer import ReplayBuffer
 
-
-class DQNAgent:
+"""
+Changed the policy to use est Q values to get probs for each action
+can change this to be on or off policy, if off policy, assume strictly greedy future acting
+"""
+class ModdedDQNAgent:
     def __init__(
         self,
         state_dim=72,
@@ -18,7 +25,9 @@ class DQNAgent:
         batch_size=64,
         target_update_every=500,
         device=None,
+        off_pol = True
     ):
+        self.off_pol = off_pol
         self.use_raw = False
         self.state_dim = state_dim
         self.num_actions = num_actions
@@ -41,7 +50,21 @@ class DQNAgent:
         masked[legal_actions] = q_values[legal_actions]
         return int(torch.argmax(masked).item())
 
-    def select_action(self, obs, legal_actions, epsilon=0.0):
+    def select_action(self, obs, legal_actions, epsilon=0.0, temperature=1.0):
+        """
+        Select an action stochastically using Q-values as preferences.
+
+        With probability epsilon, choose a random legal action.
+        Otherwise, sample from a softmax distribution over legal-action Q-values.
+
+        Args:
+            obs: observation vector
+            legal_actions: list of legal action ids
+            epsilon: random exploration probability
+            temperature: controls how sharp the softmax is
+                - high temperature -> more random
+                - low temperature -> closer to argmax
+        """
         if random.random() < epsilon:
             return random.choice(legal_actions)
 
@@ -50,12 +73,26 @@ class DQNAgent:
         with torch.no_grad():
             q_values = self.q_network(obs_t)[0]
 
-        return self._masked_argmax(q_values, legal_actions)
+        legal_actions_t = torch.tensor(legal_actions, dtype=torch.long, device=self.device)
 
-    def step(self, state):
+        legal_q_values = q_values[legal_actions_t]
+
+        # Convert Q-values into probabilities.
+        probs = F.softmax(legal_q_values / temperature, dim=0)
+
+        # Sample one legal action according to those probabilities.
+        sampled_index = torch.multinomial(probs, num_samples=1).item()
+
+        return legal_actions[sampled_index]
+
+    def step(self, state, eps=0.0):
+
         legal_actions = list(state["legal_actions"].keys())
         obs = state["obs"]
-        return self.select_action(obs, legal_actions, epsilon=0.0)
+        if self.off_pol:
+            return self.select_action(obs, legal_actions, epsilon=0.0)
+        else:
+            return self.select_action(obs, legal_actions, epsilon=eps)
 
     def eval_step(self, state):
         action = self.step(state)
