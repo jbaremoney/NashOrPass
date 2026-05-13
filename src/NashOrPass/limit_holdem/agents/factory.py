@@ -17,4 +17,5 @@ def make_agent(name: str):
     if name == "tight":
         return TightAgent()
 
+
     raise ValueError(f"Unknown agent name: {name}")

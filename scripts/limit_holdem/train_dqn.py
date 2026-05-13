@@ -130,7 +130,7 @@ def main():
 
     parser.add_argument("--epsilon-start", type=float, default=1.0)
     parser.add_argument("--epsilon-end", type=float, default=0.05)
-    parser.add_argument("--epsilon-decay-episodes", type=int, default=3000)
+    parser.add_argument("--epsilon-decay-episodes", type=int, default=12000)
 
     # DQN training schedule
     parser.add_argument("--learning-starts", type=int, default=1000)
@@ -148,8 +148,8 @@ def main():
         f"_hidden{args.hidden_dim}"
     )
 
-    save_dir = Path("checkpoints/limit_holdem/dqn") / run_name
-    metrics_dir = Path("results/limit_holdem/std_dqn/metrics") / f"gamma{args.gamma}"
+    save_dir = Path("checkpoints/limit_holdem/dqn") / "longereps" / run_name
+    metrics_dir = Path("results/limit_holdem/std_dqn/metrics") / f"gamma{args.gamma}" / "longereps"
 
     save_dir.mkdir(parents=True, exist_ok=True)
     metrics_dir.mkdir(parents=True, exist_ok=True)
