@@ -146,7 +146,7 @@ def main():
     # Exploration schedule.
     parser.add_argument("--epsilon-start", type=float, default=1.0)
     parser.add_argument("--epsilon-end", type=float, default=0.05)
-    parser.add_argument("--epsilon-decay-episodes", type=int, default=3000)
+    parser.add_argument("--epsilon-decay-episodes", type=int, default=20000) # less because policy explores alr
 
     # Replay/training schedule.
     parser.add_argument("--learning-starts", type=int, default=1000)
