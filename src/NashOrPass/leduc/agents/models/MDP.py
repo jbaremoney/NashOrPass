@@ -1,7 +1,8 @@
-from src.NashOrPass.environment.leduc.simple.models.Policy import Policy
-from src.NashOrPass.environment.leduc.simple.models.State import MDPState
 from copy import deepcopy
-from src.NashOrPass.environment.leduc.simple.utils.showdown import showdown
+
+from NashOrPass.leduc.env.models.Policy import Policy
+from NashOrPass.leduc.env.models.State import MDPState
+from NashOrPass.leduc.env.utils.showdown import showdown
 
 
 class LeducSimpleMDP:

@@ -1,5 +1,5 @@
-from NashOrPass.agents.models.leduc.MDP import LeducSimpleMDP
-from NashOrPass.environment.leduc.simple.models.State import MDPState
+from NashOrPass.leduc.agents.models.leduc.MDP import LeducSimpleMDP
+from NashOrPass.leduc.environment.leduc.simple.models.State import MDPState
 import os
 import pickle
 
