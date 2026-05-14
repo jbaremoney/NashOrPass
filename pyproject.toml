@@ -14,7 +14,11 @@ dependencies = [
     "pandas",
     "matplotlib",
     "tqdm",
-    "scikit-learn"
+    "scikit-learn",
+    "abstract (>=2025.2.17.0,<2026.0.0.0)",
+    "openai (>=2.36.0,<3.0.0)",
+    "anthropic (>=0.102.0,<0.103.0)",
+    "xai-sdk (>=1.12.2,<2.0.0)"
 ]
 
 [dependency-groups]
