@@ -264,12 +264,199 @@ class LeducSimpleMDP:
 
             return prob_tab
 
-        def villain_action_dist(state):
+        def card_rank(card):
+            """
+            Extract rank from a card representation like 'Jh', 'Qd', 'Kc',
+            or from a public card representation like 'J', 'Q', 'K'.
+            """
+            if card is None:
+                return None
+            return str(card)[0]
+
+        def villain_private_card(state):
+            """
+            In this MDP state, hero_card and villain_card are both known to the
+            model because DP enumerates the full underlying state.
+
+            This is okay for a scripted opponent inside the full transition model:
+            villain's policy can condition on villain's own private card and public card.
+            """
+            return state.villain_card
+
+        def villain_strength_category(state):
+            """
+            Coarse hand-strength bucket for villain.
+
+            preflop:
+                K = strong
+                Q = medium
+                J = weak
+
+            postflop:
+                pair with board = strong
+                K-high = medium/strong-ish
+                Q-high = medium
+                J-high = weak
+            """
+            v_rank = card_rank(villain_private_card(state))
+            board_rank = card_rank(state.flop_card)
+
+            if state.round_stage == "preflop":
+                if v_rank == "K":
+                    return "strong"
+                if v_rank == "Q":
+                    return "medium"
+                return "weak"
+
+            # postflop
+            if board_rank is not None and v_rank == board_rank:
+                return "strong"
+
+            if v_rank == "K":
+                return "medium_strong"
+            if v_rank == "Q":
+                return "medium"
+            return "weak"
+
+        def choose_first_available(actions, preferences):
+            for preferred in preferences:
+                if preferred in actions:
+                    return {preferred: 1.0}
+            return {actions[0]: 1.0}
+
+        def normalize(dist):
+            total = sum(dist.values())
+            if total <= 0:
+                raise ValueError(f"Invalid zero-probability action distribution: {dist}")
+            return {a: p / total for a, p in dist.items() if p > 0}
+
+        @staticmethod
+        def villain_action_dist(state, villain_policy):
             actions = LeducSimpleMDP.legal_actions_from_mdp(state)
-            if villain_policy == 'uniform':
-                return {action: 1.0 / len(actions) for action in actions}
-            else:
-                return Policy(villain_policy).dummy_dist(actions, state)
+
+            if villain_policy == "uniform":
+                return {a: 1.0 / len(actions) for a in actions}
+
+            if villain_policy == "always_raise":
+                return choose_first_available(actions, ["raise", "bet", "call", "check"])
+
+            if villain_policy == "always_fold":
+                return choose_first_available(actions, ["fold", "check", "call"])
+
+            if villain_policy == "check_call":
+                return choose_first_available(actions, ["check", "call"])
+
+            if villain_policy == "tight":
+                return choose_first_available(actions, ["check", "fold", "call", "raise"])
+
+            if villain_policy == "aggressive":
+                return choose_first_available(actions, ["raise", "bet", "call", "check", "fold"])
+
+            if villain_policy == "rank_aware_tight":
+                strength = villain_strength_category(state)
+
+                # Strong hands: value bet / raise.
+                if strength == "strong":
+                    return choose_first_available(
+                        actions,
+                        ["raise", "bet", "call", "check"],
+                    )
+
+                # Medium-strong hands: continue, but avoid bloating pot too much.
+                if strength == "medium_strong":
+                    return choose_first_available(
+                        actions,
+                        ["check", "call", "bet", "raise", "fold"],
+                    )
+
+                # Medium hands: check/call, fold to heavy pressure.
+                if strength == "medium":
+                    if state.action_facing == "reraise" and "fold" in actions:
+                        return {"fold": 1.0}
+
+                    return choose_first_available(
+                        actions,
+                        ["check", "call", "fold", "bet"],
+                    )
+
+                # Weak hands: check if free, fold if pressured.
+                return choose_first_available(
+                    actions,
+                    ["check", "fold", "call"],
+                )
+
+            if villain_policy == "rank_aware_aggressive":
+                strength = villain_strength_category(state)
+
+                # Strong hands: always pressure.
+                if strength == "strong":
+                    return choose_first_available(
+                        actions,
+                        ["raise", "bet", "call", "check"],
+                    )
+
+                # Medium-strong hands: often pressure, but can continue.
+                if strength == "medium_strong":
+                    dist = {}
+
+                    if "raise" in actions:
+                        dist["raise"] = 0.60
+                    if "bet" in actions:
+                        dist["bet"] = 0.60
+                    if "call" in actions:
+                        dist["call"] = 0.30
+                    if "check" in actions:
+                        dist["check"] = 0.30
+                    if "fold" in actions:
+                        dist["fold"] = 0.10
+
+                    if dist:
+                        return normalize(dist)
+
+                    return choose_first_available(actions, ["call", "check", "fold"])
+
+                # Medium hands: semi-aggressive. Sometimes bluff/value bet, sometimes pot-control.
+                if strength == "medium":
+                    dist = {}
+
+                    if "raise" in actions:
+                        dist["raise"] = 0.35
+                    if "bet" in actions:
+                        dist["bet"] = 0.45
+                    if "call" in actions:
+                        dist["call"] = 0.40
+                    if "check" in actions:
+                        dist["check"] = 0.40
+                    if "fold" in actions:
+                        dist["fold"] = 0.25
+
+                    if dist:
+                        return normalize(dist)
+
+                    return choose_first_available(actions, ["check", "call", "fold"])
+
+                # Weak hands: bluff sometimes when opening or facing a check,
+                # but mostly give up versus pressure.
+                if strength == "weak":
+                    dist = {}
+
+                    if "bet" in actions:
+                        dist["bet"] = 0.25
+                    if "raise" in actions:
+                        dist["raise"] = 0.15
+                    if "check" in actions:
+                        dist["check"] = 0.75
+                    if "call" in actions:
+                        dist["call"] = 0.20
+                    if "fold" in actions:
+                        dist["fold"] = 0.65
+
+                    if dist:
+                        return normalize(dist)
+
+                    return choose_first_available(actions, ["check", "fold", "call"])
+
+            raise ValueError(f"Unknown villain_policy: {villain_policy}")
 
 
         def fold_reward(state):
@@ -360,7 +547,7 @@ class LeducSimpleMDP:
         # CASE 2: villain to act
         # --------------------------------------------------
         if state.to_act == 1:
-            dist = villain_action_dist(state)
+            dist = villain_action_dist(state, villain_policy)
             outs = []
 
             for villain_action, p in dist.items():

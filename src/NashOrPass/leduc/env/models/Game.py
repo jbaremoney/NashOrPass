@@ -1,6 +1,6 @@
-from src.NashOrPass.environment.leduc.simple.models.Hand import Hand
-from src.NashOrPass.environment.leduc.simple.models.Deck import Deck
-from src.NashOrPass.environment.leduc.simple.models.Player import Player
+from NashOrPass.leduc.env.models.Hand import Hand
+from NashOrPass.leduc.env.models.Deck import Deck
+from NashOrPass.leduc.env.models.Player import Player
 from typing import List
 
 

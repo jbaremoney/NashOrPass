@@ -3,3 +3,5 @@
 checkpoints
 results
 .env
+src/NashOrPass/leduc/agents/saved_policies/
+src/NashOrPass/leduc/agents/saved_q_agents/

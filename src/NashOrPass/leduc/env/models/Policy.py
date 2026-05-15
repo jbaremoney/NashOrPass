@@ -1,5 +1,5 @@
 import random
-from src.NashOrPass.environment.leduc.simple.models.State import State
+from NashOrPass.leduc.env.models.State import State
 
 class Policy:
     def __init__(self, type="random"):

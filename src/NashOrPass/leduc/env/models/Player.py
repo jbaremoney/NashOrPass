@@ -1,6 +1,6 @@
-from src.NashOrPass.environment.leduc.simple.models.Action import Action
-from src.NashOrPass.environment.leduc.simple.models.Policy import Policy
-from src.NashOrPass.environment.leduc.simple.models.State import State
+from NashOrPass.leduc.env.models.Action import Action
+from NashOrPass.leduc.env.models.Policy import Policy
+from NashOrPass.leduc.env.models.State import State
 
 class Player:
     def __init__(self, id: int, bank: int, policy="random"):

@@ -1,7 +1,7 @@
-from src.NashOrPass.environment.leduc.simple.models.State import State, MDPState
-from src.NashOrPass.environment.leduc.simple.models.Action import Action
-from src.NashOrPass.environment.leduc.simple.models.BettingRound import BettingRound
-from src.NashOrPass.environment.leduc.simple.models.Deck import Deck
+from NashOrPass.leduc.env.models.State import State, MDPState
+from NashOrPass.leduc.env.models.Action import Action
+from NashOrPass.leduc.env.models.BettingRound import BettingRound
+from NashOrPass.leduc.env.models.Deck import Deck
 from src.NashOrPass.environment.leduc.simple.utils.showdown import showdown
 
 class Hand:
